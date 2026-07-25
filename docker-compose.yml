@@ -40,12 +40,31 @@ services:
       start_period: 60s
     restart: unless-stopped
     networks:
-      - android-net
+      android-net:
+        ipv4_address: 172.20.0.2
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    # Network capabilities for internet access
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_PTRACE
+    # DNS configuration for reliable DNS resolution
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    dns_search:
+      - .
+    # System controls for networking
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.forwarding=1
+      - net.ipv6.conf.all.forwarding=1
+      - net.bridge.bridge-nf-call-iptables=1
 
   redis:
     image: redis:7-alpine
@@ -70,3 +89,10 @@ volumes:
 networks:
   android-net:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-android
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
