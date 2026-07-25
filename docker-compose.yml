@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  android-emulator-vnc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: android-emulator-vnc
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    volumes:
+      - ./roms:/opt/roms
+      - ./data:/data
+      - /var/log/emulator:/var/log/emulator
+      - android-data:/opt/android-sdk/.android
+    environment:
+      - NODE_ENV=production
+      - ANDROID_SDK_ROOT=/opt/android-sdk
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=sqlite:///data/emulator.db
+      - DISPLAY=:99
+      - JWT_SECRET=change-me-in-production
+      - RATE_LIMIT_WINDOW=15
+      - RATE_LIMIT_MAX_REQUESTS=100
+    ports:
+      - "3000:3000"
+      - "5900:5900"
+      - "6080:6080"
+      - "5554:5554"
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - android-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: emulator-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - redis-data:/data
+    networks:
+      - android-net
+    restart: unless-stopped
+
+volumes:
+  android-data:
+  redis-data:
+
+networks:
+  android-net:
+    driver: bridge
